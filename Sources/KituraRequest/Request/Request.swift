@@ -17,7 +17,7 @@
 import Foundation
 import KituraNet
 import LoggerAPI
-
+import SwiftyJSON
 
 /// Wrapper around NSURLRequest
 /// TODO: Make an asynchronus version
@@ -78,6 +78,44 @@ public class Request {
                 request.write(from: body)
             }
 
+            self.request = request
+        } catch {
+            self.request = nil
+            self.error = error
+        }
+    }
+    
+    public init(method: Method,
+                _ URL: String,
+                payload: JSON) {
+        
+        do {
+            var options: [ClientRequest.Options] = []
+            options.append(.schema("")) // so that ClientRequest doesn't apend http
+            options.append(.method(method.rawValue)) // set method of request
+            
+            var urlRequest = try formatURL(URL)
+            urlRequest.httpMethod = method.rawValue
+            
+            let encoding = JSONEncoding(options: .prettyPrinted)
+            try encoding.encode(&urlRequest, parameters: [:])
+            
+            options.append(.hostname(urlRequest.url!.absoluteString))
+            
+            // headers
+            options.append(.headers(["Content-Type":"application/json"]))
+            
+            if let headers = urlRequest.allHTTPHeaderFields {
+                options.append(.headers(headers))
+            }
+            
+            // Create request
+            let request = HTTP.request(options) { response in
+                self.response = response
+            }
+            
+            urlRequest.httpBody = payload.rawString(encoding: .ascii, options: .prettyPrinted)?.data(using: .ascii, allowLossyConversion: false)
+            
             self.request = request
         } catch {
             self.request = nil
